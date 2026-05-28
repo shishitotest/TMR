@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Student Portal — That Math Room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cream: #f5f0e8;
+      --cream-dark: #ede8dc;
+      --olive: #7a7a4a;
+      --olive-light: #a8a86e;
+      --olive-pale: #e8e8d4;
+      --dark: #2a2318;
+      --mid: #6b6050;
+      --white: #faf8f3;
+      --sidebar-w: 240px;
+      --success: #4a7a5a;
+      --error: #c0392b;
+    }
+    html, body { height: 100%; }
+    body {
+      background: var(--cream);
+      color: var(--dark);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      line-height: 1.6;
+    }
+    h1,h2,h3,h4 { font-family: 'Cormorant Garamond', serif; font-weight: 500; }
+    input, select, textarea {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      color: var(--dark);
+    }
+    button { font-family: 'DM Sans', sans-serif; }
+    ::selection { background: var(--olive-pale); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--cream); }
+    ::-webkit-scrollbar-thumb { background: var(--olive-pale); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
+
+// ── Helpers ──────────────────────────────────────────────────────
+function MountainMark({ size = 40, color }) {
+  // Original hand-painted mountain mark. `color` retained for back-compat:
+  // pass a near-white value (e.g. '#fff', '#a8a86e' on dark bgs) and we invert
+  // the mark to read on dark surfaces.
+  const light = color && /^#?(fff|f8|fa|fb|fc|fd|fe|ff|a8a86e)/i.test(color.replace('#',''));
+  return (
+    <img
+      src="assets/tmr-mark.png"
+      alt="That Math Room"
+      width={size}
+      height={size * 0.7}
+      style={{
+        display: 'block',
+        objectFit: 'contain',
+        filter: light ? 'brightness(0) invert(1) opacity(0.85)' : 'none'
+      }}
+    />
+  );
+}
+
+const STORAGE_KEY = 'tmr_portal';
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+}
+function saveState(s) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch {}
+}
+
+// Mock available slots: Mon/Wed/Sat for each week
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function getWeekDays(offset = 0) {
+  const now = new Date();
+  const start = new Date(now);
+  start.setDate(now.getDate() - now.getDay() + offset * 7);
+  return Array.from({length: 7}, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d;
+  });
+}
+
+const SLOT_TIMES = ['10:00am','11:30am','2:00pm','3:30pm','5:00pm'];
+// Days with slots: Mon(1), Wed(3), Sat(6)
+const SLOT_DAYS = [1, 3, 6];
+
+function getSlots(weekDays) {
+  const result = {};
+  weekDays.forEach(d => {
+    const dow = d.getDay();
+    if (SLOT_DAYS.includes(dow)) {
+      const key = d.toDateString();
+      const past = d < new Date(new Date().setHours(0,0,0,0));
+      result[key] = past ? [] : SLOT_TIMES.map((t, i) => ({
+        time: t,
+        available: Math.random() > 0.35 || i < 2,
+      }));
+    }
+  });
+  return result;
+}
+
+const TERM_PACKAGES = [
+  { id: 'p1p2', label: 'P1 & P2', price: 380, sessions: 10, desc: 'Foundation group class · 10 sessions' },
+  { id: 'p3p4', label: 'P3 & P4', price: 420, sessions: 10, desc: 'Intermediate group class · 10 sessions' },
+  { id: 'p5p6', label: 'P5 & P6', price: 460, sessions: 10, desc: 'Advanced group class · 10 sessions' },
+];
+
+// ── Auth Screen ──────────────────────────────────────────────────
+function AuthScreen({ onLogin }) {
+  const [tab, setTab] = useState('signin');
+  const [form, setForm] = useState({ name: '', child: '', level: 'P3', email: '', password: '' });
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+
+  const validate = () => {
+    const e = {};
+    if (!form.email.trim() || !form.email.includes('@')) e.email = 'Valid email required';
+    if (!form.password || form.password.length < 6) e.password = 'Min. 6 characters';
+    if (tab === 'register') {
+      if (!form.name.trim()) e.name = 'Required';
+      if (!form.child.trim()) e.child = 'Required';
+    }
+    return e;
+  };
+
+  const submit = (e) => {
+    e.preventDefault();
+    const errs = validate();
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      onLogin({
+        name: tab === 'register' ? form.name : 'Sarah Tan',
+        child: tab === 'register' ? form.child : 'Ethan',
+        level: tab === 'register' ? form.level : 'P4',
+        email: form.email,
+        sessionsRemaining: tab === 'register' ? 0 : 6,
+        totalSessions: tab === 'register' ? 0 : 10,
+        paid: tab !== 'register',
+      });
+    }, 900);
+  };
+
+  const inp = (err) => ({
+    width: '100%', padding: '13px 15px', fontSize: 15,
+    background: 'var(--white)', border: `1.5px solid ${err ? 'var(--error)' : 'var(--olive-pale)'}`,
+    borderRadius: 6, outline: 'none', transition: 'border-color 0.2s',
+  });
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--cream)', padding: '40px 20px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', right: '-5%', bottom: '-5%', opacity: 0.05 }}><MountainMark size={500}/></div>
+      <div style={{ position: 'absolute', left: '-8%', top: '10%', opacity: 0.04 }}><MountainMark size={300}/></div>
+      <div style={{ width: '100%', maxWidth: 440, position: 'relative' }}>
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <a href="index.html" style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+            <MountainMark size={48}/>
+            <span style={{ fontFamily: 'Cormorant Garamond', fontSize: 16, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--dark)' }}>That Math Room</span>
+          </a>
+          <p style={{ fontSize: 13, color: 'var(--mid)', marginTop: 8 }}>Student Portal</p>
+        </div>
+
+        <div style={{ background: 'var(--white)', borderRadius: 12, border: '1px solid var(--olive-pale)', overflow: 'hidden', boxShadow: '0 4px 32px rgba(42,35,24,0.07)' }}>
+          {/* Tabs */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid var(--olive-pale)' }}>
+            {[['signin','Sign In'],['register','Register']].map(([id, label]) => (
+              <button key={id} onClick={() => { setTab(id); setErrors({}); }} style={{
+                padding: '18px', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 400,
+                background: tab === id ? 'var(--white)' : 'var(--cream)',
+                color: tab === id ? 'var(--olive)' : 'var(--mid)',
+                borderBottom: tab === id ? '2px solid var(--olive)' : '2px solid transparent',
+                letterSpacing: '0.04em', transition: 'all 0.2s',
+              }}>{label}</button>
+            ))}
+          </div>
+          <form onSubmit={submit} style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+            {tab === 'register' && (<>
+              <div>
+                <label style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mid)', display: 'block', marginBottom: 7 }}>Your Name *</label>
+                <input style={inp(errors.name)} value={form.name} onChange={e => { setForm({...form, name: e.target.value}); setErrors({...errors, name: null}); }} placeholder="Parent / guardian name"
+                  onFocus={e => e.target.style.borderColor = 'var(--olive)'} onBlur={e => e.target.style.borderColor = errors.name ? 'var(--error)' : 'var(--olive-pale)'}/>
+                {errors.name && <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 4 }}>{errors.name}</p>}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mid)', display: 'block', marginBottom: 7 }}>Child's Name *</label>
+                  <input style={inp(errors.child)} value={form.child} onChange={e => { setForm({...form, child: e.target.value}); setErrors({...errors, child: null}); }} placeholder="Name"
+                    onFocus={e => e.target.style.borderColor = 'var(--olive)'} onBlur={e => e.target.style.borderColor = errors.child ? 'var(--error)' : 'var(--olive-pale)'}/>
+                  {errors.child && <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 4 }}>{errors.child}</p>}
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mid)', display: 'block', marginBottom: 7 }}>Level</label>
+                  <select style={{ ...inp(false), appearance: 'none', cursor: 'pointer' }} value={form.level} onChange={e => setForm({...form, level: e.target.value})}
+                    onFocus={e => e.target.style.borderColor = 'var(--olive)'} onBlur={e => e.target.style.borderColor = 'var(--olive-pale)'}>
+                    {['P1','P2','P3','P4','P5','P6'].map(l => <option key={l}>{l}</option>)}
+                  </select>
+                </div>
+              </div>
+            </>)}
+            <div>
+              <label style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mid)', display: 'block', marginBottom: 7 }}>Email *</label>
+              <input type="email" style={inp(errors.email)} value={form.email} onChange={e => { setForm({...form, email: e.target.value}); setErrors({...errors, email: null}); }} placeholder="your@email.com"
+                onFocus={e => e.target.style.borderColor = 'var(--olive)'} onBlur={e => e.target.style.borderColor = errors.email ? 'var(--error)' : 'var(--olive-pale)'}/>
+              {errors.email && <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 4 }}>{errors.email}</p>}
+            </div>
+            <div>
+              <label style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mid)', display: 'block', marginBottom: 7 }}>Password *</label>
+              <input type="password" style={inp(errors.password)} value={form.password} onChange={e => { setForm({...form, password: e.target.value}); setErrors({...errors, password: null}); }} placeholder="••••••••"
+                onFocus={e => e.target.style.borderColor = 'var(--olive)'} onBlur={e => e.target.style.borderColor = errors.password ? 'var(--error)' : 'var(--olive-pale)'}/>
+              {errors.password && <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 4 }}>{errors.password}</p>}
+            </div>
+            <button type="submit" disabled={loading} style={{
+              background: loading ? 'var(--olive-light)' : 'var(--olive)', color: 'var(--white)',
+              border: 'none', borderRadius: 6, padding: '15px', fontSize: 15,
+              cursor: loading ? 'default' : 'pointer', letterSpacing: '0.03em',
+              transition: 'background 0.2s', marginTop: 4,
+            }}>
+              {loading ? 'Please wait…' : (tab === 'signin' ? 'Sign In' : 'Create Account')}
+            </button>
+            {tab === 'signin' && (
+              <p style={{ fontSize: 13, color: 'var(--mid)', textAlign: 'center' }}>
+                Don't have an account? <button onClick={() => setTab('register')} style={{ background: 'none', border: 'none', color: 'var(--olive)', cursor: 'pointer', fontSize: 13, textDecoration: 'underline' }}>Register</button>
+              </p>
+            )}
+          </form>
+        </div>
+        <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--mid)', marginTop: 24 }}>
+          <a href="index.html" style={{ color: 'var(--olive)', textDecoration: 'none' }}>← Back to main site</a>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Sidebar ──────────────────────────────────────────────────────
+function Sidebar({ page, setPage, user, onLogout }) {
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: '⬡' },
+    { id: 'book', label: 'Book a Session', icon: '◫' },
+    { id: 'sessions', label: 'My Sessions', icon: '≡' },
+    { id: 'pay', label: 'Pay for Term', icon: '◈' },
+  ];
+  return (
+    <aside style={{
+      width: 'var(--sidebar-w)', background: 'var(--dark)', height: '100vh',
+      position: 'fixed', left: 0, top: 0, display: 'flex', flexDirection: 'column',
+      zIndex: 10,
+    }}>
+      {/* Logo */}
+      <div style={{ padding: '28px 24px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <a href="index.html" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+          <MountainMark size={28} color="#a8a86e"/>
+          <span style={{ fontFamily: 'Cormorant Garamond', fontSize: 14, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>That Math Room</span>
+        </a>
+      </div>
+      {/* User badge */}
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--olive)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+          <span style={{ fontFamily: 'Cormorant Garamond', fontSize: 18, color: 'var(--white)', fontWeight: 600 }}>{user.child?.[0] || user.name?.[0] || 'S'}</span>
+        </div>
+        <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', fontWeight: 400 }}>{user.child}</div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{user.level} · {user.name}</div>
+      </div>
+      {/* Nav */}
+      <nav style={{ flex: 1, padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {navItems.map(item => (
+          <button key={item.id} onClick={() => setPage(item.id)} style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '12px 14px', border: 'none', borderRadius: 8, cursor: 'pointer',
+            background: page === item.id ? 'rgba(122,122,74,0.25)' : 'none',
+            color: page === item.id ? 'var(--white)' : 'rgba(255,255,255,0.45)',
+            fontSize: 14, fontWeight: 400, transition: 'all 0.18s', textAlign: 'left',
+            borderLeft: page === item.id ? '3px solid var(--olive-light)' : '3px solid transparent',
+          }}
+          onMouseEnter={e => { if (page !== item.id) e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
+          onMouseLeave={e => { if (page !== item.id) e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; }}
+          >
+            <span style={{ fontSize: 16, opacity: 0.8 }}>{item.icon}</span>
+            {item.label}
+          </button>
+        ))}
+      </nav>
+      {/* Sessions badge */}
+      {user.paid && (
+        <div style={{ margin: '0 12px 12px', background: 'rgba(122,122,74,0.2)', borderRadius: 8, padding: '14px 16px', border: '1px solid rgba(122,122,74,0.3)' }}>
+          <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 8 }}>Sessions Remaining</div>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {Array.from({length: user.totalSessions || 10}).map((_, i) => (
+              <div key={i} style={{ width: 10, height: 10, borderRadius: 2, background: i < (user.sessionsRemaining || 0) ? 'var(--olive-light)' : 'rgba(255,255,255,0.1)' }}/>
+            ))}
+          </div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 8 }}>{user.sessionsRemaining} of {user.totalSessions} remaining</div>
+        </div>
+      )}
+      {/* Logout */}
+      <button onClick={onLogout} style={{
+        margin: '0 12px 24px', padding: '12px', border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: 8, background: 'none', color: 'rgba(255,255,255,0.35)',
+        fontSize: 13, cursor: 'pointer', transition: 'all 0.2s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; e.currentTarget.style.color = 'rgba(255,255,255,0.65)'; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(255,255,255,0.35)'; }}
+      >Sign Out</button>
+    </aside>
+  );
+}
+
+// ── Dashboard Page ───────────────────────────────────────────────
+function DashboardPage({ user, setPage, bookedSessions }) {
+  const upcoming = bookedSessions.filter(s => s.status === 'upcoming').slice(0, 3);
+  const needsPay = !user.paid;
+  const lowSessions = user.paid && user.sessionsRemaining <= 2;
+
+  return (
+    <div>
+      <h1 style={{ fontSize: 36, color: 'var(--dark)', marginBottom: 6 }}>Welcome back, {user.name?.split(' ')[0]}.</h1>
+      <p style={{ color: 'var(--mid)', fontSize: 15, marginBottom: 36 }}>{user.child} · {user.level} · {new Date().toLocaleDateString('en-SG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+
+      {/* Alert banner */}
+      {needsPay && (
+        <div style={{ background: '#fff8ee', border: '1px solid #e8c97a', borderRadius: 8, padding: '16px 20px', marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: '#7a5a00', marginBottom: 2 }}>No active term</div>
+            <div style={{ fontSize: 13, color: '#9a7a20' }}>Purchase a term to start booking sessions.</div>
+          </div>
+          <button onClick={() => setPage('pay')} style={{ background: '#7a5a00', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 18px', fontSize: 13, cursor: 'pointer', flexShrink: 0 }}>Pay Now</button>
+        </div>
+      )}
+      {lowSessions && (
+        <div style={{ background: '#fff3f0', border: '1px solid #e8a07a', borderRadius: 8, padding: '16px 20px', marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: '#7a3a00', marginBottom: 2 }}>Only {user.sessionsRemaining} session{user.sessionsRemaining !== 1 ? 's' : ''} left</div>
+            <div style={{ fontSize: 13, color: '#9a5a20' }}>Renew your term to keep the momentum going.</div>
+          </div>
+          <button onClick={() => setPage('pay')} style={{ background: '#7a3a00', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 18px', fontSize: 13, cursor: 'pointer', flexShrink: 0 }}>Renew Term</button>
+        </div>
+      )}
+
+      {/* Stats row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 32 }}>
+        {[
+          { label: 'Sessions Remaining', value: user.paid ? user.sessionsRemaining : '—', sub: user.paid ? `of ${user.totalSessions}` : 'No active term' },
+          { label: 'Sessions Completed', value: user.paid ? (user.totalSessions - user.sessionsRemaining) : '—', sub: 'this term' },
+          { label: 'Next Session', value: upcoming[0] ? upcoming[0].date : '—', sub: upcoming[0] ? upcoming[0].time : 'None booked' },
+        ].map(s => (
+          <div key={s.label} style={{ background: 'var(--white)', border: '1px solid var(--olive-pale)', borderRadius: 10, padding: '24px 20px' }}>
+            <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mid)', marginBottom: 10 }}>{s.label}</div>
+            <div style={{ fontSize: 32, fontFamily: 'Cormorant Garamond', color: 'var(--dark)', fontWeight: 600 }}>{s.value}</div>
+            <div style={{ fontSize: 12, color: 'var(--olive-light)', marginTop: 4 }}>{s.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Upcoming sessions */}
+      <div style={{ background: 'var(--white)', border: '1px solid var(--olive-pale)', borderRadius: 10, overflow: 'hidden', marginBottom: 24 }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--olive-pale)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ fontSize: 20, color: 'var(--dark)' }}>Upcoming Sessions</h3>
+          {user.paid && <button onClick={() => setPage('book')} style={{ background: 'var(--olive)', color: 'var(--white)', border: 'none', borderRadius: 6, padding: '9px 16px', fontSize: 13, cursor: 'pointer' }}>Book a Session</button>}
+        </div>
+        {upcoming.length === 0 ? (
+          <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--mid)' }}>
+            <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.3 }}><MountainMark size={48} color="#a8a86e"/></div>
+            <p style={{ fontSize: 15 }}>No sessions booked yet.</p>
+            {user.paid && <button onClick={() => setPage('book')} style={{ marginTop: 16, background: 'none', border: '1px solid var(--olive-pale)', color: 'var(--olive)', borderRadius: 6, padding: '10px 20px', fontSize: 14, cursor: 'pointer' }}>Browse available slots →</button>}
+          </div>
+        ) : upcoming.map((s, i) => (
+          <div key={i} style={{ padding: '16px 24px', borderBottom: i < upcoming.length - 1 ? '1px solid var(--olive-pale)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ width: 44, height: 44, background: 'var(--olive-pale)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ fontSize: 16, fontFamily: 'Cormorant Garamond', fontWeight: 600, color: 'var(--olive)', lineHeight: 1 }}>{s.dateObj.getDate()}</div>
+                <div style={{ fontSize: 10, color: 'var(--olive)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{MONTHS[s.dateObj.getMonth()]}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 15, color: 'var(--dark)', fontWeight: 400 }}>{s.day} · {s.time}</div>
+                <div style={{ fontSize: 12, color: 'var(--mid)' }}>{user.level} Small Group · Bencoolen</div>
+              </div>
+            </div>
+            <span style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'var(--olive-pale)', color: 'var(--olive)', padding: '4px 12px', borderRadius: 20 }}>Confirmed</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Acuity Config ─────────────────────────────────────────────────
+// Replace ACUITY_OWNER_ID with your actual Acuity owner ID (found in
+// Acuity → Integrations → Embed Scheduler). You can also set
+// ACUITY_CALENDAR_ID to pre-select a specific calendar/appointment type.
+const ACUITY_OWNER_ID = 'YOUR_OWNER_ID';      // e.g. '12345678'
+const ACUITY_APPOINTMENT_TYPE = '';            // e.g. '&appointmentType=1234567' or leave blank
+
+function AcuityEmbed({ user }) {
+  const iframeRef = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+
+  const params = new URLSearchParams({
+    owner: ACUITY_OWNER_ID,
+    firstName: user.child || '',
+    lastName: '',
+    email: user.email || '',
+    field_note: `Level: ${user.level}`,
+    backgroundColor: 'f5f0e8',
+    foregroundColor: '2a2318',
+    accentColor: '7a7a4a',
+    buttonColor: '7a7a4a',
+  });
+
+  const src = ACUITY_OWNER_ID === 'YOUR_OWNER_ID'
+    ? null
+    : `https://app.acuityscheduling.com/schedule.php?${params}${ACUITY_APPOINTMENT_TYPE}`;
+
+  if (!src) {
+    return (
+      <div style={{ background: 'var(--white)', border: '1.5px dashed var(--olive-light)', borderRadius: 10, padding: '48px 40px', textAlign: 'center' }}>
+        <MountainMark size={48} color="#a8a86e"/>
+        <h3 style={{ fontSize: 24, color: 'var(--dark)', margin: '20px 0 10px' }}>Connect Acuity Scheduling</h3>
+        <p style={{ fontSize: 15, color: 'var(--mid)', maxWidth: 480, margin: '0 auto 28px', lineHeight: 1.8 }}>
+          To embed your live Acuity calendar here, open <code style={{ background: 'var(--cream)', padding: '2px 6px', borderRadius: 4, fontSize: 13 }}>portal.html</code> and set <code style={{ background: 'var(--cream)', padding: '2px 6px', borderRadius: 4, fontSize: 13 }}>ACUITY_OWNER_ID</code> to your Acuity owner ID.
+        </p>
+        <div style={{ background: 'var(--cream)', borderRadius: 8, padding: '20px 24px', textAlign: 'left', maxWidth: 520, margin: '0 auto 28px', border: '1px solid var(--olive-pale)' }}>
+          <p style={{ fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--olive)', marginBottom: 12 }}>How to find your owner ID</p>
+          {[
+            'Log in to Acuity Scheduling',
+            'Go to Business Settings → Integrations',
+            'Click "Embed Scheduler"',
+            'Copy the number from your embed URL (e.g. acuityscheduling.com/schedule.php?owner=12345678)',
+          ].map((step, i) => (
+            <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 10, alignItems: 'flex-start' }}>
+              <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--olive-pale)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--olive)', fontWeight: 500 }}>{i + 1}</div>
+              <span style={{ fontSize: 14, color: 'var(--mid)', lineHeight: 1.6 }}>{step}</span>
+            </div>
+          ))}
+        </div>
+        <a href="https://acuityscheduling.com" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', background: 'var(--olive)', color: 'var(--white)', textDecoration: 'none', borderRadius: 6, padding: '12px 24px', fontSize: 14 }}>Open Acuity →</a>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--olive-pale)' }}>
+      {!loaded && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--white)', zIndex: 1 }}>
+          <div>
+            <MountainMark size={40} color="#a8a86e"/>
+            <p style={{ fontSize: 13, color: 'var(--mid)', marginTop: 12, textAlign: 'center' }}>Loading calendar…</p>
+          </div>
+        </div>
+      )}
+      <iframe
+        ref={iframeRef}
+        src={src}
+        title="Book a session"
+        width="100%"
+        height="760"
+        frameBorder="0"
+        onLoad={() => setLoaded(true)}
+        style={{ display: 'block', background: 'var(--white)' }}
+      />
+    </div>
+  );
+}
+
+// ── Book Page ────────────────────────────────────────────────────
+function BookPage({ user, setPage }) {
+  if (!user.paid) return (
+    <div style={{ textAlign: 'center', padding: '80px 0' }}>
+      <MountainMark size={60} color="#a8a86e"/>
+      <h2 style={{ fontSize: 28, marginTop: 20, marginBottom: 12, color: 'var(--dark)' }}>No active term</h2>
+      <p style={{ color: 'var(--mid)', fontSize: 15, marginBottom: 24 }}>Purchase a term before booking sessions.</p>
+      <button onClick={() => setPage('pay')} style={{ background: 'var(--olive)', color: 'var(--white)', border: 'none', borderRadius: 6, padding: '14px 28px', fontSize: 15, cursor: 'pointer' }}>Purchase a Term</button>
+    </div>
+  );
+
+  if (user.sessionsRemaining <= 0) return (
+    <div style={{ textAlign: 'center', padding: '80px 0' }}>
+      <MountainMark size={60} color="#a8a86e"/>
+      <h2 style={{ fontSize: 28, marginTop: 20, marginBottom: 12, color: 'var(--dark)' }}>No sessions remaining</h2>
+      <p style={{ color: 'var(--mid)', fontSize: 15, marginBottom: 24 }}>Renew your term to continue booking.</p>
+      <button onClick={() => setPage('pay')} style={{ background: 'var(--olive)', color: 'var(--white)', border: 'none', borderRadius: 6, padding: '14px 28px', fontSize: 15, cursor: 'pointer' }}>Renew Term</button>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h2 style={{ fontSize: 32, color: 'var(--dark)', marginBottom: 4 }}>Book a Session</h2>
+          <p style={{ color: 'var(--mid)', fontSize: 14 }}>
+            {user.sessionsRemaining} session{user.sessionsRemaining !== 1 ? 's' : ''} remaining this term · {user.level} · Bencoolen
+          </p>
+        </div>
+        {/* Sessions pip bar */}
+        <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap', paddingTop: 6 }}>
+          {Array.from({ length: user.totalSessions || 10 }).map((_, i) => (
+            <div key={i} style={{ width: 10, height: 10, borderRadius: 2, background: i < (user.sessionsRemaining || 0) ? 'var(--olive)' : 'var(--olive-pale)' }}/>
+          ))}
+        </div>
+      </div>
+
+      {/* Info banner */}
+      <div style={{ background: 'var(--olive-pale)', border: '1px solid rgba(122,122,74,0.25)', borderRadius: 8, padding: '14px 18px', marginBottom: 24, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <span style={{ fontSize: 16, color: 'var(--olive)', flexShrink: 0, marginTop: 1 }}>ℹ</span>
+        <p style={{ fontSize: 13, color: 'var(--mid)', lineHeight: 1.7 }}>
+          Select a date and time below. You'll receive a confirmation email from Acuity with a calendar invite and reminder. Each booking uses one session from your term.
+        </p>
+      </div>
+
+      <AcuityEmbed user={user}/>
+    </div>
+  );
+}
+
+// ── Sessions Page ────────────────────────────────────────────────
+function SessionsPage({ bookedSessions }) {
+  const upcoming = bookedSessions.filter(s => s.status === 'upcoming');
+  const past = bookedSessions.filter(s => s.status === 'past');
+
+  const SessionRow = ({ s, dim }) => (
+    <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--olive-pale)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', opacity: dim ? 0.55 : 1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ width: 40, height: 40, background: dim ? 'var(--cream-dark)' : 'var(--olive-pale)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ fontSize: 14, fontFamily: 'Cormorant Garamond', fontWeight: 600, color: 'var(--olive)', lineHeight: 1 }}>{s.dateObj.getDate()}</div>
+          <div style={{ fontSize: 9, color: 'var(--olive)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{MONTHS[s.dateObj.getMonth()]}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 14, color: 'var(--dark)' }}>{s.day} · {s.time}</div>
+          <div style={{ fontSize: 12, color: 'var(--mid)' }}>Small Group · Bencoolen</div>
+        </div>
+      </div>
+      <span style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', background: dim ? 'var(--cream-dark)' : 'var(--olive-pale)', color: dim ? 'var(--mid)' : 'var(--olive)', padding: '4px 12px', borderRadius: 20 }}>
+        {s.status === 'upcoming' ? 'Confirmed' : 'Completed'}
+      </span>
+    </div>
+  );
+
+  return (
+    <div>
+      <h2 style={{ fontSize: 32, color: 'var(--dark)', marginBottom: 28 }}>My Sessions</h2>
+      {bookedSessions.length === 0 ? (
+        <div style={{ background: 'var(--white)', border: '1px solid var(--olive-pale)', borderRadius: 10, padding: '60px', textAlign: 'center' }}>
+          <MountainMark size={52} color="#a8a86e"/>
+          <p style={{ color: 'var(--mid)', marginTop: 16, fontSize: 15 }}>No sessions booked yet.</p>
+        </div>
+      ) : (
+        <>
+          {upcoming.length > 0 && (
+            <div style={{ background: 'var(--white)', border: '1px solid var(--olive-pale)', borderRadius: 10, overflow: 'hidden', marginBottom: 24 }}>
+              <div style={{ padding: '16px 24px', background: 'var(--cream)', borderBottom: '1px solid var(--olive-pale)' }}>
+                <span style={{ fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--olive)' }}>Upcoming ({upcoming.length})</span>
+              </div>
+              {upcoming.map((s, i) => <SessionRow key={i} s={s} dim={false}/>)}
+            </div>
+          )}
+          {past.length > 0 && (
+            <div style={{ background: 'var(--white)', border: '1px solid var(--olive-pale)', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ padding: '16px 24px', background: 'var(--cream)', borderBottom: '1px solid var(--olive-pale)' }}>
+                <span style={{ fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mid)' }}>Past ({past.length})</span>
+              </div>
+              {past.map((s, i) => <SessionRow key={i} s={s} dim={true}/>)}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Pay Page ─────────────────────────────────────────────────────
+function PayPage({ user, onPay }) {
+  const [selectedPkg, setSelectedPkg] = useState(null);
+  const [step, setStep] = useState(1); // 1=choose, 2=payment, 3=done
+  const [card, setCard] = useState({ name: '', number: '', expiry: '', cvv: '' });
+  const [errors, setErrors] = useState({});
+  const [processing, setProcessing] = useState(false);
+
+  // Auto-select matching level
+  useEffect(() => {
+    const level = user.level;
+    if (level === 'P1' || level === 'P2') setSelectedPkg('p1p2');
+    else if (level === 'P3' || level === 'P4') setSelectedPkg('p3p4');
+    else setSelectedPkg('p5p6');
+  }, []);
+
+  const pkg = TERM_PACKAGES.find(p => p.id === selectedPkg);
+
+  const formatCard = (v) => v.replace(/\D/g, '').slice(0, 16).replace(/(.{4})/g, '$1 ').trim();
+  const formatExpiry = (v) => { const d = v.replace(/\D/g, '').slice(0, 4); return d.length >= 3 ? d.slice(0, 2) + '/' + d.slice(2) : d; };
+
+  const validateCard = () => {
+    const e = {};
+    if (!card.name.trim()) e.name = 'Required';
+    if (card.number.replace(/\s/g, '').length < 16) e.number = 'Enter a valid 16-digit number';
+    if (card.expiry.length < 5) e.expiry = 'MM/YY format';
+    if (card.cvv.length < 3) e.cvv = '3 digits required';
+    return e;
+  };
+
+  const submitPayment = (e) => {
+    e.preventDefault();
+    const errs = validateCard();
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+    setProcessing(true);
+    setTimeout(() => { setProcessing(false); setStep(3); onPay(pkg); }, 1800);
+  };
+
+  const inp = (err, extra = {}) => ({
+    width: '100%', padding: '13px 15px', fontSize: 15,
+    background: 'var(--white)', border: `1.5px solid ${err ? 'var(--error)' : 'var(--olive-pale)'}`,
+    borderRadius: 6, outline: 'none', transition: 'border-color 0.2s', ...extra,
+  });
+
+  if (step === 3) return (
+    <div style={{ textAlign: 'center', padding: '60px 0' }}>
+      <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--olive-pale)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+        <span style={{ fontSize: 30, color: 'var(--olive)' }}>✓</span>
+      </div>
+      <h2 style={{ fontSize: 36, color: 'var(--dark)', marginBottom: 12 }}>Payment Confirmed</h2>
+      <p style={{ fontSize: 16, color: 'var(--mid)', marginBottom: 8 }}>S${pkg?.price} · {pkg?.label} · 10 sessions</p>
+      <p style={{ fontSize: 14, color: 'var(--mid)', marginBottom: 32 }}>A receipt has been sent to {user.email}</p>
+      <p style={{ fontSize: 15, color: 'var(--olive)' }}>You can now book your sessions from the calendar.</p>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 680 }}>
+      <h2 style={{ fontSize: 32, color: 'var(--dark)', marginBottom: 6 }}>Pay for a Term</h2>
+      <p style={{ color: 'var(--mid)', fontSize: 14, marginBottom: 32 }}>10 sessions per term · Small group classes</p>
+
+      {/* Progress */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 36, background: 'var(--cream-dark)', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--olive-pale)' }}>
+        {[['1', 'Choose plan'], ['2', 'Payment']].map(([n, label], i) => (
+          <div key={n} style={{ flex: 1, padding: '14px 20px', background: step > i ? (step === i + 1 ? 'var(--olive)' : 'var(--olive-pale)') : 'transparent', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 24, height: 24, borderRadius: '50%', background: step >= i + 1 ? 'var(--white)' : 'var(--olive-pale)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--olive)', fontWeight: 500 }}>{n}</div>
+            <span style={{ fontSize: 13, color: step === i + 1 ? 'var(--white)' : 'var(--mid)' }}>{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {step === 1 && (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 28 }}>
+            {TERM_PACKAGES.map(p => (
+              <div key={p.id} onClick={() => setSelectedPkg(p.id)} style={{
+                border: `2px solid ${selectedPkg === p.id ? 'var(--olive)' : 'var(--olive-pale)'}`,
+                borderRadius: 10, padding: '20px 24px', cursor: 'pointer',
+                background: selectedPkg === p.id ? 'var(--olive-pale)' : 'var(--white)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                transition: 'all 0.2s',
+              }}>
+                <div>
+                  <div style={{ fontSize: 18, fontFamily: 'Cormorant Garamond', color: 'var(--dark)', fontWeight: 500, marginBottom: 4 }}>{p.label}</div>
+                  <div style={{ fontSize: 13, color: 'var(--mid)' }}>{p.desc}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 28, fontFamily: 'Cormorant Garamond', color: selectedPkg === p.id ? 'var(--olive)' : 'var(--dark)', fontWeight: 600 }}>S${p.price}</div>
+                  <div style={{ fontSize: 12, color: 'var(--mid)' }}>S${(p.price / 10).toFixed(0)}/session</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => setStep(2)} disabled={!selectedPkg} style={{
+            width: '100%', background: selectedPkg ? 'var(--olive)' : 'var(--olive-pale)',
+            color: 'var(--white)', border: 'none', borderRadius: 6, padding: '16px',
+            fontSize: 15, cursor: selectedPkg ? 'pointer' : 'default', transition: 'background 0.2s',
+          }}>Continue to Payment →</button>
+        </>
+      )}
+
+      {step === 2 && (
+        <form onSubmit={submitPayment}>
+          {/* Order summary */}
+          <div style={{ background: 'var(--olive)', borderRadius: 10, padding: '20px 24px', marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>Paying for</div>
+              <div style={{ fontSize: 18, fontFamily: 'Cormorant Garamond', color: 'var(--white)' }}>{pkg?.label} · {pkg?.sessions} sessions</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 30, fontFamily: 'Cormorant Garamond', color: 'var(--white)', fontWeight: 600 }}>S${pkg?.price}</div>
+              <button type="button" onClick={() => setStep(1)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>Change</button>
+            </div>
+          </div>
+          {/* Card form */}
+          <div style={{ background: 'var(--white)', border: '1px solid var(--olive-pale)', borderRadius: 10, padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mid)', marginBottom: -4 }}>Card Details</div>
+            <div>
+              <label style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mid)', display: 'block', marginBottom: 7 }}>Cardholder Name</label>
+              <input style={inp(errors.name)} value={card.name} onChange={e => { setCard({...card, name: e.target.value}); setErrors({...errors, name: null}); }} placeholder="As shown on card"
+                onFocus={e => e.target.style.borderColor = 'var(--olive)'} onBlur={e => e.target.style.borderColor = errors.name ? 'var(--error)' : 'var(--olive-pale)'}/>
+              {errors.name && <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 4 }}>{errors.name}</p>}
+            </div>
+            <div>
+              <label style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mid)', display: 'block', marginBottom: 7 }}>Card Number</label>
+              <input style={inp(errors.number, { letterSpacing: '0.08em' })} value={card.number} onChange={e => { setCard({...card, number: formatCard(e.target.value)}); setErrors({...errors, number: null}); }} placeholder="1234 5678 9012 3456" maxLength={19}
+                onFocus={e => e.target.style.borderColor = 'var(--olive)'} onBlur={e => e.target.style.borderColor = errors.number ? 'var(--error)' : 'var(--olive-pale)'}/>
+              {errors.number && <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 4 }}>{errors.number}</p>}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div>
+                <label style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mid)', display: 'block', marginBottom: 7 }}>Expiry</label>
+                <input style={inp(errors.expiry)} value={card.expiry} onChange={e => { setCard({...card, expiry: formatExpiry(e.target.value)}); setErrors({...errors, expiry: null}); }} placeholder="MM/YY" maxLength={5}
+                  onFocus={e => e.target.style.borderColor = 'var(--olive)'} onBlur={e => e.target.style.borderColor = errors.expiry ? 'var(--error)' : 'var(--olive-pale)'}/>
+                {errors.expiry && <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 4 }}>{errors.expiry}</p>}
+              </div>
+              <div>
+                <label style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mid)', display: 'block', marginBottom: 7 }}>CVV</label>
+                <input style={inp(errors.cvv)} value={card.cvv} onChange={e => { setCard({...card, cvv: e.target.value.replace(/\D/g, '').slice(0, 4)}); setErrors({...errors, cvv: null}); }} placeholder="•••"
+                  onFocus={e => e.target.style.borderColor = 'var(--olive)'} onBlur={e => e.target.style.borderColor = errors.cvv ? 'var(--error)' : 'var(--olive-pale)'}/>
+                {errors.cvv && <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 4 }}>{errors.cvv}</p>}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+            <button type="button" onClick={() => setStep(1)} style={{ flex: '0 0 auto', background: 'none', border: '1px solid var(--olive-pale)', color: 'var(--mid)', borderRadius: 6, padding: '14px 20px', fontSize: 14, cursor: 'pointer' }}>← Back</button>
+            <button type="submit" disabled={processing} style={{ flex: 1, background: processing ? 'var(--olive-light)' : 'var(--olive)', color: 'var(--white)', border: 'none', borderRadius: 6, padding: '14px', fontSize: 15, cursor: processing ? 'default' : 'pointer', transition: 'background 0.2s' }}>
+              {processing ? 'Processing…' : `Pay S$${pkg?.price}`}
+            </button>
+          </div>
+          <p style={{ fontSize: 11, color: 'var(--mid)', textAlign: 'center', marginTop: 14, opacity: 0.6 }}>This is a demo — no real payment is processed.</p>
+        </form>
+      )}
+    </div>
+  );
+}
+
+// ── Portal (logged-in shell) ─────────────────────────────────────
+function Portal({ user: initUser, onLogout }) {
+  const [user, setUser] = useState(initUser);
+  const [page, setPage] = useState('dashboard');
+  const [bookedSessions, setBookedSessions] = useState(() => {
+    if (initUser.paid) {
+      // Seed some mock sessions
+      const today = new Date();
+      const sessions = [];
+      // Past sessions
+      for (let i = 4; i >= 1; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i * 7 + (i % 2 === 0 ? 2 : 0));
+        // Find next Mon/Wed/Sat
+        while (![1,3,6].includes(d.getDay())) d.setDate(d.getDate() + 1);
+        sessions.push({ date: d.toDateString(), dateObj: new Date(d), day: DAYS[d.getDay()], time: SLOT_TIMES[1], status: 'past', key: `past_${i}` });
+      }
+      // Upcoming sessions
+      for (let i = 1; i <= 2; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() + i * 5);
+        while (![1,3,6].includes(d.getDay())) d.setDate(d.getDate() + 1);
+        sessions.push({ date: d.toDateString(), dateObj: new Date(d), day: DAYS[d.getDay()], time: SLOT_TIMES[0], status: 'upcoming', key: `upcoming_${i}` });
+      }
+      return sessions;
+    }
+    return [];
+  });
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const handleBook = (slot) => {
+    setBookedSessions(prev => [...prev, { ...slot, dateObj: new Date(slot.date), status: 'upcoming' }]);
+    setUser(u => ({ ...u, sessionsRemaining: Math.max(0, u.sessionsRemaining - 1) }));
+  };
+
+  const handlePay = (pkg) => {
+    setUser(u => ({ ...u, paid: true, sessionsRemaining: pkg.sessions, totalSessions: pkg.sessions }));
+  };
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
+      {/* Sidebar */}
+      <div style={{ display: 'contents' }}>
+        <Sidebar page={page} setPage={(p) => { setPage(p); setSidebarOpen(false); }} user={user} onLogout={onLogout}/>
+      </div>
+
+      {/* Main */}
+      <main style={{ marginLeft: 'var(--sidebar-w)', flex: 1, padding: '48px 48px 80px', minHeight: '100vh', background: 'var(--cream)' }}>
+        {/* Top bar */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 40 }}>
+          <a href="index.html" style={{ fontSize: 13, color: 'var(--mid)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+            ← Main site
+          </a>
+        </div>
+
+        {page === 'dashboard' && <DashboardPage user={user} setPage={setPage} bookedSessions={bookedSessions}/>}
+        {page === 'book' && <BookPage user={user} setPage={setPage}/>}
+        {page === 'sessions' && <SessionsPage bookedSessions={bookedSessions}/>}
+        {page === 'pay' && <PayPage user={user} onPay={handlePay}/>}
+      </main>
+
+      <style>{`
+        @media(max-width: 900px) {
+          main { margin-left: 0 !important; padding: 24px !important; }
+          aside { display: none !important; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ── Root App ─────────────────────────────────────────────────────
+function App() {
+  const saved = loadState();
+  const [user, setUser] = useState(saved.user || null);
+
+  const handleLogin = (u) => {
+    setUser(u);
+    saveState({ user: u });
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    saveState({});
+  };
+
+  if (!user) return <AuthScreen onLogin={handleLogin}/>;
+  return <Portal user={user} onLogout={handleLogout}/>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
+    <rect width="200" height="140" fill="#2a2318"/>
+    <rect x="0" y="0" width="50" height="140" fill="#1e1a12"/>
+    <rect x="55" y="20" width="130" height="24" rx="4" fill="#7a7a4a" opacity="0.4"/>
+    <rect x="55" y="54" width="80" height="12" rx="3" fill="#7a7a4a" opacity="0.25"/>
+    <rect x="55" y="74" width="80" height="12" rx="3" fill="#7a7a4a" opacity="0.15"/>
+    <text x="25" y="75" text-anchor="middle" font-size="22" fill="#7a7a4a" opacity="0.6">⬡</text>
+  </svg>
+</template>
+</body>
+</html>

@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>That Math Room — Primary Maths Tuition, Bencoolen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cream: #f5f0e8;
+      --cream-dark: #ede8dc;
+      --olive: #7a7a4a;
+      --olive-light: #a8a86e;
+      --olive-pale: #e8e8d4;
+      --dark: #2a2318;
+      --mid: #6b6050;
+      --white: #faf8f3;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--cream);
+      color: var(--dark);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+    h1, h2, h3, h4 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 500;
+      line-height: 1.15;
+    }
+    ::selection { background: var(--olive-pale); }
+    .fade-in { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
+    .fade-in.visible { opacity: 1; transform: translateY(0); }
+    /* Tweaks panel */
+    #tweaks-panel {
+      display: none;
+      position: fixed;
+      bottom: 24px; right: 24px;
+      background: var(--white);
+      border: 1px solid var(--olive-pale);
+      border-radius: 12px;
+      padding: 20px;
+      z-index: 9999;
+      width: 220px;
+      box-shadow: 0 8px 32px rgba(42,35,24,0.12);
+    }
+    #tweaks-panel.open { display: block; }
+    #tweaks-panel h4 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 14px; color: var(--olive); }
+    .tweak-row { margin-bottom: 12px; }
+    .tweak-row label { font-size: 12px; color: var(--mid); display: block; margin-bottom: 4px; }
+    .tweak-row select, .tweak-row input[type=range] { width: 100%; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+
+const { useState, useEffect, useRef } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "heroHeadline": "Where every child finds their footing in maths.",
+  "ctaLabel": "Book a Free Trial",
+  "showTestimonials": true
+}/*EDITMODE-END*/;
+
+// ── Logo (original hand-painted mountain mark) ─────────────────
+function MountainMark({ size = 48, color }) {
+  // `color` accepted for back-compat: when '#fff' or similar light, invert via filter
+  // so the mark reads on dark backgrounds (olive section, footer).
+  const light = color && /^#?(fff|f8|fa|fb|fc|fd|fe|ff)/i.test(color.replace('#',''));
+  return (
+    <img
+      src="assets/tmr-mark.png"
+      alt="That Math Room"
+      width={size}
+      height={size * 0.7}
+      style={{
+        display: 'block',
+        objectFit: 'contain',
+        filter: light ? 'brightness(0) invert(1) opacity(0.85)' : 'none'
+      }}
+    />);
+
+}
+
+// ── Nav ────────────────────────────────────────────────────────
+function Nav({ ctaLabel }) {
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    const fn = () => setScrolled(window.scrollY > 40);
+    window.addEventListener('scroll', fn);
+    return () => window.removeEventListener('scroll', fn);
+  }, []);
+  const links = ['About', 'Approach', 'Classes', 'Testimonials', 'FAQ', 'Contact'];
+  const scrollTo = (id) => {
+    setMenuOpen(false);
+    document.getElementById(id.toLowerCase())?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  return (
+    <nav style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+      background: scrolled ? 'rgba(245,240,232,0.96)' : 'transparent',
+      backdropFilter: scrolled ? 'blur(10px)' : 'none',
+      borderBottom: scrolled ? '1px solid rgba(122,122,74,0.15)' : 'none',
+      transition: 'all 0.35s ease',
+      padding: '0 5vw'
+    }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 72 }}>
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <MountainMark size={36} />
+          <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 17, letterSpacing: '0.12em', fontWeight: 500, color: 'var(--dark)', textTransform: 'uppercase' }}>That Math Room</span>
+        </div>
+        {/* Desktop links */}
+        <div style={{ display: 'flex', gap: 32, alignItems: 'center' }} className="desktop-nav">
+          {links.map((l) =>
+          <button key={l} onClick={() => scrollTo(l)} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 13, letterSpacing: '0.06em', color: 'var(--mid)',
+            fontFamily: 'DM Sans', fontWeight: 400,
+            transition: 'color 0.2s'
+          }}
+          onMouseEnter={(e) => e.target.style.color = 'var(--olive)'}
+          onMouseLeave={(e) => e.target.style.color = 'var(--mid)'}>
+            {l}</button>
+          )}
+          <a href="careers.html" style={{
+            fontSize: 13, letterSpacing: '0.06em', color: 'var(--mid)',
+            fontFamily: 'DM Sans', fontWeight: 400, textDecoration: 'none',
+            transition: 'color 0.2s',
+          }}
+          onMouseEnter={e => e.target.style.color = 'var(--olive)'}
+          onMouseLeave={e => e.target.style.color = 'var(--mid)'}>Careers</a>
+          <a href="portal.html" style={{
+            fontSize: 13, letterSpacing: '0.06em', color: 'var(--mid)',
+            fontFamily: 'DM Sans', fontWeight: 400, textDecoration: 'none',
+            transition: 'color 0.2s',
+          }}
+          onMouseEnter={e => e.target.style.color = 'var(--olive)'}
+          onMouseLeave={e => e.target.style.color = 'var(--mid)'}>Student Portal</a>
+          <button onClick={() => scrollTo('Contact')} style={{
+            background: 'var(--olive)', color: 'var(--white)',
+            border: 'none', borderRadius: 4, padding: '10px 20px',
+            fontSize: 13, fontFamily: 'DM Sans', cursor: 'pointer',
+            letterSpacing: '0.04em', transition: 'background 0.2s'
+          }}
+          onMouseEnter={(e) => e.target.style.background = '#666638'}
+          onMouseLeave={(e) => e.target.style.background = 'var(--olive)'}>
+            {ctaLabel}</button>
+        </div>
+        {/* Mobile hamburger */}
+        <button onClick={() => setMenuOpen(!menuOpen)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'none' }} className="hamburger">
+          <div style={{ width: 22, height: 2, background: 'var(--dark)', marginBottom: 5, transition: 'all 0.3s', transform: menuOpen ? 'rotate(45deg) translate(5px,5px)' : 'none' }} />
+          <div style={{ width: 22, height: 2, background: 'var(--dark)', marginBottom: 5, opacity: menuOpen ? 0 : 1 }} />
+          <div style={{ width: 22, height: 2, background: 'var(--dark)', transition: 'all 0.3s', transform: menuOpen ? 'rotate(-45deg) translate(5px,-5px)' : 'none' }} />
+        </button>
+      </div>
+      {/* Mobile menu */}
+      {menuOpen &&
+      <div style={{ background: 'var(--cream)', padding: '20px 5vw 28px', borderTop: '1px solid var(--olive-pale)' }}>
+          {[...links].map((l) =>
+            <button key={l} onClick={() => scrollTo(l)} style={{
+              display: 'block', width: '100%', textAlign: 'left',
+              background: 'none', color: 'var(--dark)', border: 'none',
+              padding: '10px 0', fontSize: 15, fontFamily: 'DM Sans', cursor: 'pointer',
+            }}>{l}</button>
+          )}
+          <a href="portal.html" style={{ display: 'block', padding: '10px 0', fontSize: 15, color: 'var(--mid)', textDecoration: 'none' }}>Student Portal</a>
+          <button onClick={() => { setMenuOpen(false); document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' }); }} style={{
+            display: 'block', width: '100%', textAlign: 'left',
+            background: 'var(--olive)', color: 'var(--white)',
+            border: 'none', borderRadius: 4, padding: '12px 16px',
+            fontSize: 15, fontFamily: 'DM Sans', cursor: 'pointer', marginTop: 8,
+          }}>Book a Free Trial</button>
+        </div>
+      }
+      <style>{`
+        @media (max-width: 768px) {
+          .desktop-nav { display: none !important; }
+          .hamburger { display: block !important; }
+        }
+      `}</style>
+    </nav>);
+
+}
+
+// ── Hero ───────────────────────────────────────────────────────
+function Hero({ headline, ctaLabel }) {
+  return (
+    <section id="hero" style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center',
+      background: 'var(--cream)',
+      padding: '120px 5vw 80px',
+      position: 'relative', overflow: 'hidden'
+    }}>
+      {/* Background mountain decorations */}
+      <div style={{ position: 'absolute', right: '-2%', bottom: '8%', opacity: 0.07, pointerEvents: 'none' }}>
+        <MountainMark size={480} color="#7a7a4a" />
+      </div>
+      <div style={{ position: 'absolute', left: '-4%', top: '30%', opacity: 0.04, pointerEvents: 'none' }}>
+        <MountainMark size={300} color="#7a7a4a" />
+      </div>
+      <div style={{ maxWidth: 1200, margin: '0 auto', width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center' }}>
+        <div>
+          <p style={{ fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--olive)', marginBottom: 24, fontWeight: 400 }}>PRIMARY MATHS TUITION</p>
+          <h1 style={{ fontSize: 'clamp(40px, 5vw, 68px)', fontWeight: 500, color: 'var(--dark)', marginBottom: 28, lineHeight: 1.1, textWrap: 'pretty' }}>
+            {headline}
+          </h1>
+          <p style={{ fontSize: 18, color: 'var(--mid)', marginBottom: 40, maxWidth: 460, lineHeight: 1.8 }}>
+            Small group classes for Primary 1–6. We build genuine understanding, not just exam technique — so confidence follows naturally.
+          </p>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <button onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })} style={{
+              background: 'var(--olive)', color: 'var(--white)',
+              border: 'none', borderRadius: 4, padding: '16px 32px',
+              fontSize: 15, fontFamily: 'DM Sans', cursor: 'pointer',
+              fontWeight: 400, letterSpacing: '0.03em', transition: 'background 0.2s, transform 0.2s'
+            }}
+            onMouseEnter={(e) => {e.target.style.background = '#666638';e.target.style.transform = 'translateY(-2px)';}}
+            onMouseLeave={(e) => {e.target.style.background = 'var(--olive)';e.target.style.transform = 'translateY(0)';}}>
+              {ctaLabel}</button>
+            <button onClick={() => document.getElementById('classes')?.scrollIntoView({ behavior: 'smooth' })} style={{
+              background: 'none', color: 'var(--dark)',
+              border: '1.5px solid var(--olive-pale)', borderRadius: 4, padding: '16px 32px',
+              fontSize: 15, fontFamily: 'DM Sans', cursor: 'pointer',
+              fontWeight: 400, letterSpacing: '0.03em', transition: 'border-color 0.2s'
+            }}
+            onMouseEnter={(e) => e.target.style.borderColor = 'var(--olive)'}
+            onMouseLeave={(e) => e.target.style.borderColor = 'var(--olive-pale)'}>
+              View Classes</button>
+          </div>
+          {/* Trust bar */}
+          <div style={{ display: 'flex', gap: 32, marginTop: 56, flexWrap: 'wrap' }}>
+            {[['P1–P6', 'All levels'], ['≤8', 'Per class'], ['Bencoolen', 'Singapore']].map(([val, label]) =>
+            <div key={val}>
+                <div style={{ fontSize: 28, fontFamily: 'Cormorant Garamond, serif', color: 'var(--olive)', fontWeight: 600 }}>{val}</div>
+                <div style={{ fontSize: 12, color: 'var(--mid)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{label}</div>
+              </div>
+            )}
+          </div>
+        </div>
+        {/* Hero image placeholder */}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <div style={{
+            width: '100%', maxWidth: 480, aspectRatio: '4/5',
+            background: 'var(--cream-dark)',
+            borderRadius: 8,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            border: '1px solid var(--olive-pale)',
+            position: 'relative', overflow: 'hidden'
+          }}>
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(122,122,74,0.05) 10px, rgba(122,122,74,0.05) 11px)' }} />
+            <MountainMark size={80} color="#a8a86e" />
+            <p style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--olive-light)', marginTop: 16, textAlign: 'center', padding: '0 20px' }}>classroom photo<br />or student photo</p>
+          </div>
+        </div>
+      </div>
+      <style>{`@media(max-width:768px){#hero > div{grid-template-columns:1fr!important;} #hero > div > div:last-child{display:none!important;}}`}</style>
+    </section>);
+
+}
+
+// ── Divider ────────────────────────────────────────────────────
+function Divider() {
+  return <div style={{ height: 1, background: 'var(--olive-pale)', maxWidth: 1200, margin: '0 auto' }} />;
+}
+
+// ── About ──────────────────────────────────────────────────────
+function About() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const obs = new IntersectionObserver((entries) => entries.forEach((e) => {if (e.isIntersecting) e.target.classList.add('visible');}), { threshold: 0.15 });
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <section id="about" style={{ padding: '100px 5vw', background: 'var(--white)' }}>
+      <div ref={ref} className="fade-in" style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
+        {/* Photo */}
+        <div style={{
+          aspectRatio: '1/1', background: 'var(--cream)',
+          borderRadius: 8, border: '1px solid var(--olive-pale)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          position: 'relative', overflow: 'hidden'
+        }}>
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(135deg, transparent, transparent 10px, rgba(122,122,74,0.04) 10px, rgba(122,122,74,0.04) 11px)' }} />
+          <MountainMark size={60} color="#a8a86e" />
+          <p style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--olive-light)', marginTop: 12 }}>tutor photo</p>
+        </div>
+        {/* Text */}
+        <div>
+          <p style={{ fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--olive)', marginBottom: 16 }}>About Us</p>
+          <h2 style={{ fontSize: 'clamp(32px, 3.5vw, 50px)', marginBottom: 24, color: 'var(--dark)' }}>A room where maths starts to make sense</h2>
+          <p style={{ fontSize: 16, color: 'var(--mid)', lineHeight: 1.9, marginBottom: 20 }}>
+            That Math Room was founded on a simple belief: every child can do well in maths when they are taught with patience, clarity, and the right amount of challenge.
+          </p>
+          <p style={{ fontSize: 16, color: 'var(--mid)', lineHeight: 1.9, marginBottom: 20 }}>
+            Our classes are kept deliberately small — no more than 8 students — so your child gets the attention they deserve. We follow the MOE syllabus closely while going deeper on the <em>why</em>, not just the how.
+          </p>
+          <p style={{ fontSize: 16, color: 'var(--mid)', lineHeight: 1.9 }}>
+            Located at Bencoolen, we welcome students from Primary 1 through Primary 6, whether they need to build a solid foundation or push for the top scores.
+          </p>
+        </div>
+      </div>
+      <style>{`@media(max-width:768px){#about > div{grid-template-columns:1fr!important;} #about > div > div:first-child{display:none!important;}}`}</style>
+    </section>);
+
+}
+
+// ── Approach ───────────────────────────────────────────────────
+function Approach() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const obs = new IntersectionObserver((entries) => entries.forEach((e) => {if (e.isIntersecting) e.target.classList.add('visible');}), { threshold: 0.1 });
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+  const pillars = [
+  { title: 'Deep Understanding', body: 'We use the Singapore Model Method and bar diagrams to build genuine conceptual understanding — not just drilling procedures.' },
+  { title: 'Small Groups', body: 'Classes of 8 or fewer mean your child is never lost in the crowd. Mistakes are caught early, and questions are always welcome.' },
+  { title: 'Consistent Progress', body: 'Regular worksheets, timed drills, and mock papers ensure students are ready long before exam season arrives.' }];
+
+  return (
+    <section id="approach" style={{ padding: '100px 5vw', background: 'var(--cream)' }}>
+      <div ref={ref} className="fade-in" style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 64 }}>
+          <p style={{ fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--olive)', marginBottom: 16 }}>Our Approach</p>
+          <h2 style={{ fontSize: 'clamp(32px, 3.5vw, 50px)', color: 'var(--dark)', maxWidth: 560, margin: '0 auto' }}>
+            Built around how children actually learn
+          </h2>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32 }}>
+          {pillars.map((p, i) =>
+          <div key={i} style={{
+            background: 'var(--white)',
+            border: '1px solid var(--olive-pale)',
+            borderRadius: 8, padding: '40px 32px',
+            transition: 'transform 0.25s, box-shadow 0.25s'
+          }}
+          onMouseEnter={(e) => {e.currentTarget.style.transform = 'translateY(-6px)';e.currentTarget.style.boxShadow = '0 12px 40px rgba(42,35,24,0.08)';}}
+          onMouseLeave={(e) => {e.currentTarget.style.transform = 'translateY(0)';e.currentTarget.style.boxShadow = 'none';}}>
+            
+              <div style={{ width: 36, height: 3, background: 'var(--olive)', marginBottom: 28, borderRadius: 2 }} />
+              <h3 style={{ fontSize: 24, marginBottom: 16, color: 'var(--dark)' }}>{p.title}</h3>
+              <p style={{ fontSize: 15, color: 'var(--mid)', lineHeight: 1.85 }}>{p.body}</p>
+            </div>
+          )}
+        </div>
+      </div>
+      <style>{`@media(max-width:768px){#approach .fade-in > div:last-child{grid-template-columns:1fr!important;}}`}</style>
+    </section>);
+
+}
+
+// ── Classes ────────────────────────────────────────────────────
+function Classes() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const obs = new IntersectionObserver((entries) => entries.forEach((e) => {if (e.isIntersecting) e.target.classList.add('visible');}), { threshold: 0.1 });
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+  const levels = [
+  { level: 'P1 & P2', focus: 'Numbers, shapes, and measurement. We lay a joyful, stress-free foundation.', tag: 'Foundation' },
+  { level: 'P3 & P4', focus: 'Fractions, area & perimeter, word problems. Where maths starts to stretch.', tag: 'Intermediate' },
+  { level: 'P5 & P6', focus: 'Ratios, percentage, speed, and full PSLE preparation with timed papers.', tag: 'Advanced' }];
+
+  return (
+    <section id="classes" style={{ padding: '100px 5vw', background: 'var(--white)' }}>
+      <div ref={ref} className="fade-in" style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 64 }}>
+          <p style={{ fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--olive)', marginBottom: 16 }}>Classes & Programmes</p>
+          <h2 style={{ fontSize: 'clamp(32px, 3.5vw, 50px)', color: 'var(--dark)' }}>Primary 1 through 6</h2>
+          <p style={{ fontSize: 16, color: 'var(--mid)', marginTop: 16, maxWidth: 480, margin: '16px auto 0' }}>Small group classes, carefully levelled so every child works at exactly the right pitch.</p>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
+          {levels.map((l, i) =>
+          <div key={i} style={{
+            border: '1.5px solid var(--olive-pale)', borderRadius: 8,
+            overflow: 'hidden',
+            transition: 'transform 0.25s, box-shadow 0.25s'
+          }}
+          onMouseEnter={(e) => {e.currentTarget.style.transform = 'translateY(-4px)';e.currentTarget.style.boxShadow = '0 10px 36px rgba(42,35,24,0.08)';}}
+          onMouseLeave={(e) => {e.currentTarget.style.transform = 'translateY(0)';e.currentTarget.style.boxShadow = 'none';}}>
+            
+              <div style={{ background: 'var(--olive)', padding: '28px 28px 24px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', right: -20, bottom: -20, opacity: 0.15 }}><MountainMark size={100} color="#fff" /></div>
+                <span style={{ fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.65)', display: 'block', marginBottom: 8 }}>{l.tag}</span>
+                <h3 style={{ fontSize: 34, color: 'var(--white)', fontFamily: 'Cormorant Garamond', fontWeight: 500 }}>{l.level}</h3>
+              </div>
+              <div style={{ padding: '28px', background: 'var(--cream)' }}>
+                <p style={{ fontSize: 15, color: 'var(--mid)', lineHeight: 1.85, marginBottom: 24 }}>{l.focus}</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {['Small group (≤8)', 'MOE-aligned syllabus', 'Regular progress reports'].map((f) =>
+                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--mid)' }}>
+                      <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--olive-pale)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--olive)' }} />
+                      </div>
+                      {f}
+                    </div>
+                )}
+                </div>
+                <button onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })} style={{
+                marginTop: 28, width: '100%', background: 'var(--dark)',
+                color: 'var(--white)', border: 'none', borderRadius: 4, padding: '12px',
+                fontSize: 13, fontFamily: 'DM Sans', cursor: 'pointer',
+                letterSpacing: '0.04em', transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => e.target.style.background = 'var(--olive)'}
+              onMouseLeave={(e) => e.target.style.background = 'var(--dark)'}>
+                Enquire about this level</button>
+              </div>
+            </div>
+          )}
+        </div>
+        <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--mid)', marginTop: 32, opacity: 0.7 }}>All classes held at Bencoolen, Singapore · Weekend & weekday slots available</p>
+      </div>
+      <style>{`@media(max-width:768px){#classes .fade-in > div:last-child{grid-template-columns:1fr!important;}}`}</style>
+    </section>);
+
+}
+
+// ── Testimonials ────────────────────────────────────────────────
+function Testimonials({ show }) {
+  const ref = useRef(null);
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    const obs = new IntersectionObserver((entries) => entries.forEach((e) => {if (e.isIntersecting) e.target.classList.add('visible');}), { threshold: 0.1 });
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+  if (!show) return null;
+  const items = [
+  { quote: "My daughter dreaded maths. After two months at That Math Room she started doing problem sums voluntarily at home. We couldn't believe the turnaround.", author: 'Parent of P4 student' },
+  { quote: "The small class size made all the difference. The tutor knew exactly where my son was struggling and addressed it immediately.", author: 'Parent of P6 student' },
+  { quote: "Patient, thorough, and genuinely cares about each child. My child went from failing to distinction in one year.", author: 'Parent of P5 student' }];
+
+  return (
+    <section id="testimonials" style={{ padding: '100px 5vw', background: 'var(--olive)', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', right: '-5%', top: '-10%', opacity: 0.08 }}><MountainMark size={500} color="#fff" /></div>
+      <div ref={ref} className="fade-in" style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center', position: 'relative' }}>
+        <p style={{ fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 16 }}>What Parents Say</p>
+        <h2 style={{ fontSize: 'clamp(28px, 3vw, 42px)', color: 'var(--white)', marginBottom: 56 }}>In their own words</h2>
+        <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: '48px 48px 40px', border: '1px solid rgba(255,255,255,0.12)', minHeight: 200, transition: 'opacity 0.3s' }}>
+          <p style={{ fontSize: 'clamp(18px, 2.2vw, 24px)', fontFamily: 'Cormorant Garamond', fontStyle: 'italic', color: 'var(--white)', lineHeight: 1.7, marginBottom: 28 }}>
+            "{items[active].quote}"
+          </p>
+          <p style={{ fontSize: 13, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>{items[active].author}</p>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 32 }}>
+          {items.map((_, i) =>
+          <button key={i} onClick={() => setActive(i)} style={{
+            width: i === active ? 28 : 8, height: 8, borderRadius: 4,
+            background: i === active ? 'var(--white)' : 'rgba(255,255,255,0.3)',
+            border: 'none', cursor: 'pointer', transition: 'all 0.3s', padding: 0
+          }} />
+          )}
+        </div>
+      </div>
+    </section>);
+
+}
+
+// ── FAQ ────────────────────────────────────────────────────────
+function FAQ() {
+  const ref = useRef(null);
+  const [open, setOpen] = useState(null);
+  useEffect(() => {
+    const obs = new IntersectionObserver((entries) => entries.forEach((e) => {if (e.isIntersecting) e.target.classList.add('visible');}), { threshold: 0.1 });
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+  const faqs = [
+  { q: 'How many students are in each class?', a: 'We keep all classes to a maximum of 8 students. This ensures every child receives enough individual attention and the tutor can address specific gaps quickly.' },
+  { q: 'Where are you located?', a: 'We are located at Bencoolen, Singapore. Exact address is shared upon enrolment. Accessible via Bencoolen MRT (Downtown Line).' },
+  { q: 'Do you follow the MOE syllabus?', a: 'Yes, completely. We cover all topics in the MOE primary maths syllabus, and our materials are aligned with the format of school-based exams and the PSLE.' },
+  { q: 'How do I know if my child is making progress?', a: 'We provide regular feedback after each session and send monthly progress summaries to parents. You are always welcome to speak with the tutor directly.' },
+  { q: 'Is there a trial class?', a: 'Yes — we offer a free one-session trial so your child can experience the class before committing. Simply fill in the form below to book.' },
+  { q: 'What days and times are classes held?', a: 'We offer both weekday and weekend slots. Please contact us for the current timetable and to check availability for your child\'s level.' }];
+
+  return (
+    <section id="faq" style={{ padding: '100px 5vw', background: 'var(--cream)' }}>
+      <div ref={ref} className="fade-in" style={{ maxWidth: 760, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 56 }}>
+          <p style={{ fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--olive)', marginBottom: 16 }}>FAQ</p>
+          <h2 style={{ fontSize: 'clamp(32px, 3.5vw, 50px)', color: 'var(--dark)' }}>Common questions</h2>
+        </div>
+        {faqs.map((f, i) =>
+        <div key={i} style={{ borderTop: '1px solid var(--olive-pale)', padding: '0' }}>
+            <button onClick={() => setOpen(open === i ? null : i)} style={{
+            width: '100%', textAlign: 'left', background: 'none', border: 'none',
+            cursor: 'pointer', padding: '24px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16
+          }}>
+              <span style={{ fontSize: 18, fontFamily: 'Cormorant Garamond', color: 'var(--dark)', fontWeight: 500, lineHeight: 1.3 }}>{f.q}</span>
+              <span style={{ fontSize: 22, color: 'var(--olive)', flexShrink: 0, transition: 'transform 0.3s', transform: open === i ? 'rotate(45deg)' : 'rotate(0)' }}>+</span>
+            </button>
+            <div style={{
+            overflow: 'hidden', maxHeight: open === i ? 200 : 0,
+            transition: 'max-height 0.4s ease', paddingBottom: open === i ? 24 : 0
+          }}>
+              <p style={{ fontSize: 15, color: 'var(--mid)', lineHeight: 1.85 }}>{f.a}</p>
+            </div>
+          </div>
+        )}
+        <div style={{ borderTop: '1px solid var(--olive-pale)' }} />
+      </div>
+    </section>);
+
+}
+
+// ── Contact ─────────────────────────────────────────────────────
+function Contact({ ctaLabel }) {
+  const ref = useRef(null);
+  const [form, setForm] = useState({ name: '', child: '', level: '', phone: '', message: '' });
+  const [submitted, setSubmitted] = useState(false);
+  const [errors, setErrors] = useState({});
+  useEffect(() => {
+    const obs = new IntersectionObserver((entries) => entries.forEach((e) => {if (e.isIntersecting) e.target.classList.add('visible');}), { threshold: 0.1 });
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+  const validate = () => {
+    const e = {};
+    if (!form.name.trim()) e.name = 'Required';
+    if (!form.child.trim()) e.child = 'Required';
+    if (!form.level) e.level = 'Required';
+    if (!form.phone.trim()) e.phone = 'Required';
+    return e;
+  };
+  const handleSubmit = (ev) => {
+    ev.preventDefault();
+    const e = validate();
+    if (Object.keys(e).length) {setErrors(e);return;}
+    setSubmitted(true);
+  };
+  const inputStyle = (err) => ({
+    width: '100%', padding: '14px 16px', fontSize: 15,
+    background: 'var(--white)', border: `1.5px solid ${err ? '#c0392b' : 'var(--olive-pale)'}`,
+    borderRadius: 4, fontFamily: 'DM Sans', color: 'var(--dark)',
+    outline: 'none', transition: 'border-color 0.2s'
+  });
+  return (
+    <section id="contact" style={{ padding: '100px 5vw', background: 'var(--white)' }}>
+      <div ref={ref} className="fade-in" style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'start' }}>
+        {/* Left */}
+        <div>
+          <p style={{ fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--olive)', marginBottom: 16 }}>Get in Touch</p>
+          <h2 style={{ fontSize: 'clamp(32px, 3.5vw, 50px)', color: 'var(--dark)', marginBottom: 24 }}>Book a free trial class</h2>
+          <p style={{ fontSize: 16, color: 'var(--mid)', lineHeight: 1.9, marginBottom: 40 }}>
+            Fill in the form and we'll be in touch within one working day to confirm your child's trial session. No obligation — just a chance to see if we're the right fit.
+          </p>
+          {/* Details */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {[
+            ['Location', 'Bencoolen, Singapore\n(Exact address on enrolment)'],
+            ['WhatsApp', '+65 XXXX XXXX'],
+            ['Email', 'hello@thatmathroom.com']].
+            map(([label, val]) =>
+            <div key={label}>
+                <div style={{ fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--olive)', marginBottom: 4 }}>{label}</div>
+                <div style={{ fontSize: 15, color: 'var(--mid)', whiteSpace: 'pre-line' }}>{val}</div>
+              </div>
+            )}
+          </div>
+          <div style={{ marginTop: 48 }}>
+            <MountainMark size={80} color="#a8a86e" />
+          </div>
+        </div>
+        {/* Form */}
+        <div>
+          {submitted ?
+          <div style={{ background: 'var(--cream)', borderRadius: 8, padding: '48px 40px', border: '1px solid var(--olive-pale)', textAlign: 'center' }}>
+              <MountainMark size={56} />
+              <h3 style={{ fontSize: 28, marginTop: 20, marginBottom: 12, color: 'var(--dark)' }}>Thank you!</h3>
+              <p style={{ fontSize: 15, color: 'var(--mid)', lineHeight: 1.8 }}>We've received your enquiry and will be in touch within one working day to schedule your child's free trial.</p>
+            </div> :
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div>
+                <label style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--mid)', display: 'block', marginBottom: 8 }}>Your Name *</label>
+                <input style={inputStyle(errors.name)} value={form.name} onChange={(e) => {setForm({ ...form, name: e.target.value });setErrors({ ...errors, name: null });}}
+              onFocus={(e) => e.target.style.borderColor = 'var(--olive)'} onBlur={(e) => e.target.style.borderColor = errors.name ? '#c0392b' : 'var(--olive-pale)'}
+              placeholder="Parent / guardian name" />
+                {errors.name && <p style={{ fontSize: 12, color: '#c0392b', marginTop: 4 }}>{errors.name}</p>}
+              </div>
+              <div>
+                <label style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--mid)', display: 'block', marginBottom: 8 }}>Child's Name *</label>
+                <input style={inputStyle(errors.child)} value={form.child} onChange={(e) => {setForm({ ...form, child: e.target.value });setErrors({ ...errors, child: null });}}
+              onFocus={(e) => e.target.style.borderColor = 'var(--olive)'} onBlur={(e) => e.target.style.borderColor = errors.child ? '#c0392b' : 'var(--olive-pale)'}
+              placeholder="Your child's name" />
+                {errors.child && <p style={{ fontSize: 12, color: '#c0392b', marginTop: 4 }}>{errors.child}</p>}
+              </div>
+              <div>
+                <label style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--mid)', display: 'block', marginBottom: 8 }}>Current Level *</label>
+                <select style={{ ...inputStyle(errors.level), appearance: 'none', cursor: 'pointer', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a7a4a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 16px center' }}
+              value={form.level} onChange={(e) => {setForm({ ...form, level: e.target.value });setErrors({ ...errors, level: null });}}
+              onFocus={(e) => e.target.style.borderColor = 'var(--olive)'} onBlur={(e) => e.target.style.borderColor = errors.level ? '#c0392b' : 'var(--olive-pale)'}>
+                  <option value="">Select a level</option>
+                  {['P1', 'P2', 'P3', 'P4', 'P5', 'P6'].map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+                {errors.level && <p style={{ fontSize: 12, color: '#c0392b', marginTop: 4 }}>{errors.level}</p>}
+              </div>
+              <div>
+                <label style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--mid)', display: 'block', marginBottom: 8 }}>WhatsApp / Phone *</label>
+                <input style={inputStyle(errors.phone)} value={form.phone} onChange={(e) => {setForm({ ...form, phone: e.target.value });setErrors({ ...errors, phone: null });}}
+              onFocus={(e) => e.target.style.borderColor = 'var(--olive)'} onBlur={(e) => e.target.style.borderColor = errors.phone ? '#c0392b' : 'var(--olive-pale)'}
+              placeholder="+65 9XXX XXXX" />
+                {errors.phone && <p style={{ fontSize: 12, color: '#c0392b', marginTop: 4 }}>{errors.phone}</p>}
+              </div>
+              <div>
+                <label style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--mid)', display: 'block', marginBottom: 8 }}>Message (optional)</label>
+                <textarea style={{ ...inputStyle(false), resize: 'vertical', minHeight: 100 }} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })}
+              onFocus={(e) => e.target.style.borderColor = 'var(--olive)'} onBlur={(e) => e.target.style.borderColor = 'var(--olive-pale)'}
+              placeholder="Anything you'd like us to know..." />
+              </div>
+              <button type="submit" style={{
+              background: 'var(--olive)', color: 'var(--white)',
+              border: 'none', borderRadius: 4, padding: '16px',
+              fontSize: 15, fontFamily: 'DM Sans', cursor: 'pointer',
+              fontWeight: 400, letterSpacing: '0.04em', transition: 'background 0.2s, transform 0.2s'
+            }}
+            onMouseEnter={(e) => {e.target.style.background = '#666638';e.target.style.transform = 'translateY(-2px)';}}
+            onMouseLeave={(e) => {e.target.style.background = 'var(--olive)';e.target.style.transform = 'translateY(0)';}}>
+              {ctaLabel}</button>
+            </form>
+          }
+        </div>
+      </div>
+      <style>{`@media(max-width:768px){#contact .fade-in{grid-template-columns:1fr!important;}}`}</style>
+    </section>);
+
+}
+
+// ── Footer ─────────────────────────────────────────────────────
+function Footer() {
+  return (
+    <footer style={{ background: 'var(--dark)', padding: '48px 5vw', textAlign: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 16 }}>
+        <MountainMark size={28} color="#a8a86e" />
+        <span style={{ fontFamily: 'Cormorant Garamond', fontSize: 15, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>That Math Room</span>
+      </div>
+      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>Bencoolen, Singapore · Primary 1–6 Maths Tuition</p>
+      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)', marginTop: 24 }}>© 2026 That Math Room. All rights reserved.</p>
+    </footer>);
+
+}
+
+// ── Tweaks Panel ────────────────────────────────────────────────
+function TweaksPanel({ tweaks, setTweaks }) {
+  return (
+    <div id="tweaks-panel">
+      <h4>Tweaks</h4>
+      <div className="tweak-row">
+        <label>Hero headline</label>
+        <select value={tweaks.heroHeadline} onChange={(e) => setTweaks({ ...tweaks, heroHeadline: e.target.value })} style={{ fontSize: 12, width: '100%', padding: '6px', border: '1px solid var(--olive-pale)', borderRadius: 4, background: 'var(--white)' }}>
+          <option value="Where every child finds their footing in maths.">Footing in maths</option>
+          <option value="Building confident mathematicians, one small group at a time.">Confident mathematicians</option>
+          <option value="Small classes. Big results. Real understanding.">Small classes. Big results.</option>
+        </select>
+      </div>
+      <div className="tweak-row">
+        <label>Show testimonials</label>
+        <input type="checkbox" checked={tweaks.showTestimonials} onChange={(e) => setTweaks({ ...tweaks, showTestimonials: e.target.checked })} />
+      </div>
+      <div className="tweak-row">
+        <label>CTA button text</label>
+        <select value={tweaks.ctaLabel} onChange={(e) => setTweaks({ ...tweaks, ctaLabel: e.target.value })} style={{ fontSize: 12, width: '100%', padding: '6px', border: '1px solid var(--olive-pale)', borderRadius: 4, background: 'var(--white)' }}>
+          <option value="Book a Free Trial">Book a Free Trial</option>
+          <option value="Reserve a Spot">Reserve a Spot</option>
+          <option value="Enquire Now">Enquire Now</option>
+        </select>
+      </div>
+    </div>);
+
+}
+
+// ── App ─────────────────────────────────────────────────────────
+function App() {
+  const [tweaks, setTweaks] = useState(TWEAK_DEFAULTS);
+  const [tweaksOpen, setTweaksOpen] = useState(false);
+
+  useEffect(() => {
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === '__activate_edit_mode') setTweaksOpen(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweaksOpen(false);
+    });
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+  }, []);
+
+  useEffect(() => {
+    const panel = document.getElementById('tweaks-panel');
+    if (panel) panel.className = tweaksOpen ? 'open' : '';
+    if (tweaksOpen) {
+      window.parent.postMessage({ type: '__edit_mode_set_keys', edits: tweaks }, '*');
+    }
+  }, [tweaksOpen, tweaks]);
+
+  return (
+    <>
+      <Nav ctaLabel={tweaks.ctaLabel} />
+      <Hero headline={tweaks.heroHeadline} ctaLabel={tweaks.ctaLabel} />
+      <Divider />
+      <About />
+      <Divider />
+      <Approach />
+      <Divider />
+      <Classes />
+      <Testimonials show={tweaks.showTestimonials} />
+      <FAQ />
+      <Contact ctaLabel={tweaks.ctaLabel} />
+      <Footer />
+      <TweaksPanel tweaks={tweaks} setTweaks={setTweaks} />
+    </>);
+
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
+    <rect width="200" height="140" fill="#f5f0e8"/>
+    <path d="M40 100 C55 70 70 50 90 30 C110 50 125 70 140 100Z" fill="none" stroke="#7a7a4a" stroke-width="3"/>
+    <text x="100" y="125" text-anchor="middle" font-size="12" fill="#2a2318" font-family="serif">THAT MATH ROOM</text>
+  </svg>
+</template>
+</body>
+</html>

@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Join Us — That Math Room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cream: #f5f0e8;
+      --cream-dark: #ede8dc;
+      --olive: #7a7a4a;
+      --olive-light: #a8a86e;
+      --olive-pale: #e8e8d4;
+      --dark: #2a2318;
+      --mid: #6b6050;
+      --white: #faf8f3;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--cream);
+      color: var(--dark);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+    h1,h2,h3,h4 { font-family: 'Cormorant Garamond', serif; font-weight: 500; line-height: 1.15; }
+    ::selection { background: var(--olive-pale); }
+    a { color: inherit; }
+
+    /* Nav */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(245,240,232,0.96);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(122,122,74,0.15);
+      padding: 0 5vw;
+    }
+    .nav-inner {
+      max-width: 1200px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between; height: 72px;
+    }
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .nav-logo span { font-family: 'Cormorant Garamond', serif; font-size: 17px; letter-spacing: 0.12em; font-weight: 500; color: var(--dark); text-transform: uppercase; }
+    .nav-links { display: flex; align-items: center; gap: 28px; }
+    .nav-links a { font-size: 13px; color: var(--mid); text-decoration: none; letter-spacing: 0.05em; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--olive); }
+    .nav-cta {
+      background: var(--olive); color: var(--white) !important;
+      border-radius: 4px; padding: 10px 20px;
+      font-size: 13px; transition: background 0.2s;
+    }
+    .nav-cta:hover { background: #666638 !important; }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh; display: flex; align-items: center;
+      padding: 140px 5vw 100px;
+      position: relative; overflow: hidden;
+      background: var(--dark);
+    }
+    .hero-inner { max-width: 1200px; margin: 0 auto; width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
+    .hero-eyebrow { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--olive-light); margin-bottom: 20px; }
+    .hero-h1 { font-size: clamp(42px, 5vw, 70px); color: var(--white); margin-bottom: 24px; line-height: 1.05; }
+    .hero-sub { font-size: 18px; color: rgba(255,255,255,0.55); line-height: 1.8; margin-bottom: 40px; }
+    .hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; }
+    .btn-primary {
+      background: var(--olive); color: var(--white);
+      border: none; border-radius: 4px; padding: 16px 32px;
+      font-size: 15px; font-family: 'DM Sans', sans-serif;
+      cursor: pointer; text-decoration: none; display: inline-block;
+      transition: background 0.2s, transform 0.2s; letter-spacing: 0.03em;
+    }
+    .btn-primary:hover { background: #666638; transform: translateY(-2px); }
+    .btn-secondary {
+      background: none; color: var(--white);
+      border: 1.5px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 16px 32px;
+      font-size: 15px; font-family: 'DM Sans', sans-serif;
+      cursor: pointer; text-decoration: none; display: inline-block;
+      transition: border-color 0.2s; letter-spacing: 0.03em;
+    }
+    .btn-secondary:hover { border-color: rgba(255,255,255,0.5); }
+
+    /* Traits grid */
+    .traits { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 10px; }
+    .trait {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px; padding: 20px 18px;
+      display: flex; gap: 14px; align-items: flex-start;
+    }
+    .trait-icon { width: 36px; height: 36px; border-radius: 6px; background: rgba(122,122,74,0.25); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .trait-icon svg { width: 18px; height: 18px; }
+    .trait h4 { font-size: 15px; color: var(--white); margin-bottom: 4px; font-family: 'DM Sans'; font-weight: 400; }
+    .trait p { font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.6; }
+
+    /* Watermark */
+    .wm { position: absolute; pointer-events: none; opacity: 0.04; }
+
+    /* Section base */
+    section { padding: 96px 5vw; }
+    .section-inner { max-width: 1200px; margin: 0 auto; }
+    .section-label { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--olive); margin-bottom: 16px; }
+    .section-h2 { font-size: clamp(32px, 3.5vw, 52px); color: var(--dark); margin-bottom: 20px; }
+
+    /* Why join */
+    .why-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 56px; }
+    .why-card {
+      background: var(--white); border: 1px solid var(--olive-pale);
+      border-radius: 8px; padding: 36px 28px;
+      transition: transform 0.25s, box-shadow 0.25s;
+    }
+    .why-card:hover { transform: translateY(-5px); box-shadow: 0 12px 40px rgba(42,35,24,0.08); }
+    .why-bar { width: 32px; height: 3px; background: var(--olive); border-radius: 2px; margin-bottom: 24px; }
+    .why-card h3 { font-size: 22px; color: var(--dark); margin-bottom: 12px; }
+    .why-card p { font-size: 14px; color: var(--mid); line-height: 1.85; }
+
+    /* Role */
+    .role-section { background: var(--white); }
+    .role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: start; margin-top: 48px; }
+    .role-list { list-style: none; display: flex; flex-direction: column; gap: 14px; margin-top: 20px; }
+    .role-list li { display: flex; gap: 14px; font-size: 15px; color: var(--mid); line-height: 1.7; }
+    .role-list li::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--olive); flex-shrink: 0; margin-top: 9px; }
+    .role-subhead { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--olive); margin: 28px 0 12px; }
+    .role-body { font-size: 15px; color: var(--mid); line-height: 1.9; margin-bottom: 16px; }
+
+    /* Values strip */
+    .values-strip { background: var(--olive-pale); padding: 60px 5vw; }
+    .values-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
+    .value h3 { font-size: 28px; color: var(--olive); margin-bottom: 8px; }
+    .value p { font-size: 13px; color: var(--mid); line-height: 1.7; }
+
+    /* Apply section */
+    .apply-section { background: var(--cream); }
+    .apply-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; margin-top: 48px; }
+    .apply-copy h2 { font-size: clamp(28px, 3vw, 44px); margin-bottom: 16px; }
+    .apply-copy p { font-size: 15px; color: var(--mid); line-height: 1.9; margin-bottom: 24px; }
+    .apply-ctas { display: flex; flex-direction: column; gap: 14px; }
+    .apply-btn {
+      display: flex; align-items: center; gap: 16px;
+      padding: 20px 24px; border-radius: 8px;
+      text-decoration: none; font-family: 'DM Sans', sans-serif;
+      transition: all 0.22s; border: 1.5px solid transparent;
+    }
+    .apply-btn.email { background: var(--olive); color: var(--white); }
+    .apply-btn.email:hover { background: #666638; transform: translateX(4px); }
+    .apply-btn.whatsapp { background: var(--white); border-color: var(--olive-pale); color: var(--dark); }
+    .apply-btn.whatsapp:hover { border-color: var(--olive); transform: translateX(4px); }
+    .apply-btn-icon { width: 40px; height: 40px; border-radius: 8px; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .apply-btn.whatsapp .apply-btn-icon { background: var(--olive-pale); }
+    .apply-btn-text { flex: 1; }
+    .apply-btn-text .method { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.65; display: block; margin-bottom: 2px; }
+    .apply-btn-text .detail { font-size: 16px; font-family: 'Cormorant Garamond', serif; }
+    .apply-btn-arrow { font-size: 18px; opacity: 0.5; }
+    .apply-note { font-size: 13px; color: var(--mid); margin-top: 16px; opacity: 0.65; line-height: 1.7; }
+
+    /* FAQ mini */
+    .faq-mini { display: flex; flex-direction: column; gap: 0; }
+    .faq-mini-item { border-top: 1px solid var(--olive-pale); }
+    .faq-mini-item:last-child { border-bottom: 1px solid var(--olive-pale); }
+    .faq-mini-q { padding: 18px 0; font-size: 15px; color: var(--dark); cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+    .faq-mini-q span.icon { font-size: 20px; color: var(--olive); transition: transform 0.3s; flex-shrink: 0; }
+    .faq-mini-q.open span.icon { transform: rotate(45deg); }
+    .faq-mini-a { font-size: 14px; color: var(--mid); line-height: 1.8; padding-bottom: 18px; display: none; }
+    .faq-mini-a.open { display: block; }
+
+    /* Footer */
+    footer { background: var(--dark); padding: 48px 5vw; text-align: center; }
+    .foot-logo { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 14px; text-decoration: none; }
+    .foot-logo span { font-family: 'Cormorant Garamond', serif; font-size: 15px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+
+    @media (max-width: 768px) {
+      .hero-inner, .role-grid, .apply-grid { grid-template-columns: 1fr !important; }
+      .hero-inner > div:last-child { display: none; }
+      .why-grid { grid-template-columns: 1fr !important; }
+      .values-inner { grid-template-columns: 1fr 1fr !important; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="index.html">
+      <img src="assets/tmr-mark.png" alt="That Math Room" width="36" height="25" style="display:block;object-fit:contain;"/>
+      <span>That Math Room</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="index.html#about">About</a>
+      <a href="index.html#classes">Classes</a>
+      <a href="portal.html">Student Portal</a>
+      <a href="#apply" class="nav-cta">Apply Now</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <svg class="wm" style="right:-5%;bottom:-5%;width:500px;" viewBox="0 0 120 84" fill="none">
+    <path d="M4 78 C12 60 22 44 36 28 C44 18 50 12 58 6 C66 12 74 22 82 34 C88 22 94 14 100 8 C108 20 114 36 118 56 L118 78 Z" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M2 62 C14 50 26 40 38 36 C46 50 54 58 60 62 C66 56 74 50 84 46 C92 54 100 62 116 70" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" opacity="0.7"/>
+    <path d="M1 78 C18 68 34 62 50 60 C58 66 66 70 74 68 C84 64 96 60 119 58" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity="0.5"/>
+  </svg>
+  <div class="hero-inner">
+    <div>
+      <p class="hero-eyebrow">Careers at That Math Room</p>
+      <h1 class="hero-h1">Teach with purpose. Shape futures.</h1>
+      <p class="hero-sub">We're looking for patient, passionate maths educators who want to make a real difference — one small group at a time.</p>
+      <div class="hero-ctas">
+        <a href="#apply" class="btn-primary">Apply Now</a>
+        <a href="#role" class="btn-secondary">Learn More</a>
+      </div>
+    </div>
+    <div class="traits">
+      <div class="trait">
+        <div class="trait-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#a8a86e" stroke-width="1.8" stroke-linecap="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <div><h4>Small classes</h4><p>Max 8 students per group — you'll actually know your students</p></div>
+      </div>
+      <div class="trait">
+        <div class="trait-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#a8a86e" stroke-width="1.8" stroke-linecap="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <div><h4>Flexible hours</h4><p>Weekend and weekday options to suit your schedule</p></div>
+      </div>
+      <div class="trait">
+        <div class="trait-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#a8a86e" stroke-width="1.8" stroke-linecap="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        <div><h4>Real impact</h4><p>Watch confidence grow alongside results</p></div>
+      </div>
+      <div class="trait">
+        <div class="trait-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#a8a86e" stroke-width="1.8" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+          </svg>
+        </div>
+        <div><h4>Supportive culture</h4><p>Resources, lesson plans, and a collaborative team</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Why join -->
+<section style="background:var(--cream);">
+  <div class="section-inner">
+    <p class="section-label">Why That Math Room</p>
+    <h2 class="section-h2" style="max-width:560px;">A place where teachers can do their best work</h2>
+    <div class="why-grid">
+      <div class="why-card">
+        <div class="why-bar"></div>
+        <h3>Meaningful class sizes</h3>
+        <p>With no more than 8 students per session, you have the space to teach thoughtfully — not just cover the syllabus. Every child gets seen, every question gets answered.</p>
+      </div>
+      <div class="why-card">
+        <div class="why-bar"></div>
+        <h3>Competitive remuneration</h3>
+        <p>We believe great teaching deserves great pay. Rates are competitive and reviewed regularly. Part-time and full-time arrangements both welcome.</p>
+      </div>
+      <div class="why-card">
+        <div class="why-bar"></div>
+        <h3>Ready-made materials</h3>
+        <p>You join a system that already works. Worksheets, timed drills, and term plans are provided — you focus on teaching, not admin.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Values strip -->
+<div class="values-strip">
+  <div class="values-inner">
+    <div class="value">
+      <h3>P1–P6</h3>
+      <p>All primary levels — choose what you're best at teaching</p>
+    </div>
+    <div class="value">
+      <h3>≤8</h3>
+      <p>Students per class, always</p>
+    </div>
+    <div class="value">
+      <h3>Bencoolen</h3>
+      <p>Central location, easy to get to</p>
+    </div>
+    <div class="value">
+      <h3>Flexible</h3>
+      <p>Weekday & weekend slots available</p>
+    </div>
+  </div>
+</div>
+
+<!-- Role -->
+<section id="role" class="role-section">
+  <div class="section-inner">
+    <p class="section-label">The Role</p>
+    <h2 class="section-h2">What we're looking for</h2>
+    <div class="role-grid">
+      <div>
+        <p class="role-body">We're hiring part-time and full-time maths tutors for Primary 1 through Primary 6. Whether you're an MOE-trained teacher, a university student with a strong maths background, or an experienced tutor, we'd love to hear from you.</p>
+        <p class="role-subhead">You'll be responsible for</p>
+        <ul class="role-list">
+          <li>Delivering engaging, MOE-aligned maths lessons in small group settings</li>
+          <li>Identifying and addressing individual learning gaps</li>
+          <li>Marking worksheets and providing constructive feedback</li>
+          <li>Communicating student progress to parents when needed</li>
+          <li>Contributing ideas to improve our teaching materials</li>
+        </ul>
+      </div>
+      <div>
+        <p class="role-subhead">You're a great fit if you</p>
+        <ul class="role-list">
+          <li>Have a genuine passion for maths and for teaching children</li>
+          <li>Are patient, encouraging, and clear in your explanations</li>
+          <li>Hold a degree in Education, Mathematics, or a related field — or have equivalent experience</li>
+          <li>Are familiar with the Singapore primary maths syllabus and PSLE format</li>
+          <li>Can commit to at least one consistent weekly slot</li>
+        </ul>
+        <p class="role-subhead" style="margin-top:32px;">Nice to have</p>
+        <ul class="role-list">
+          <li>MOE teaching experience or prior tuition centre experience</li>
+          <li>Familiarity with the Singapore Model Method</li>
+          <li>Experience with P5 or P6 PSLE preparation</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Apply -->
+<section id="apply" class="apply-section">
+  <div class="section-inner">
+    <div class="apply-grid">
+      <div class="apply-copy">
+        <p class="section-label">Apply</p>
+        <h2>Ready to join us?</h2>
+        <p>Drop us a message via email or WhatsApp with a brief intro about yourself — your background, the level(s) you'd like to teach, and your availability. No formal CV required to start.</p>
+        <p style="font-size:14px; color:var(--mid);">We typically respond within 2 working days.</p>
+      </div>
+      <div>
+        <div class="apply-ctas">
+          <a href="mailto:hello@thatmathroom.com?subject=Teaching%20Application&body=Hi%2C%20I'm%20interested%20in%20joining%20That%20Math%20Room%20as%20a%20tutor.%0A%0AAbout%20me%3A%0A%0ALevels%20I%20can%20teach%3A%0A%0AAvailability%3A" class="apply-btn email">
+            <div class="apply-btn-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+            </div>
+            <div class="apply-btn-text">
+              <span class="method">Send an email</span>
+              <span class="detail">hello@thatmathroom.com</span>
+            </div>
+            <span class="apply-btn-arrow">→</span>
+          </a>
+          <a href="https://wa.me/6500000000?text=Hi%2C%20I'm%20interested%20in%20joining%20That%20Math%20Room%20as%20a%20tutor." target="_blank" rel="noopener" class="apply-btn whatsapp">
+            <div class="apply-btn-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="#7a7a4a">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+              </svg>
+            </div>
+            <div class="apply-btn-text">
+              <span class="method" style="color:var(--mid)">WhatsApp us</span>
+              <span class="detail" style="color:var(--dark);">+65 XXXX XXXX</span>
+            </div>
+            <span class="apply-btn-arrow" style="color:var(--mid)">→</span>
+          </a>
+        </div>
+        <p class="apply-note">Include a brief intro about yourself, which levels you'd like to teach, and your general availability. We'll take it from there.</p>
+
+        <!-- Mini FAQ -->
+        <div style="margin-top:40px;">
+          <p style="font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--olive); margin-bottom:8px;">Quick answers</p>
+          <div class="faq-mini">
+            <div class="faq-mini-item">
+              <div class="faq-mini-q" onclick="toggleFaq(this)">
+                Do I need a teaching degree?
+                <span class="icon">+</span>
+              </div>
+              <div class="faq-mini-a">Not necessarily. We welcome applicants with a degree in maths or a related field, strong subject knowledge, and a genuine ability to explain concepts clearly to children.</div>
+            </div>
+            <div class="faq-mini-item">
+              <div class="faq-mini-q" onclick="toggleFaq(this)">
+                Is this part-time or full-time?
+                <span class="icon">+</span>
+              </div>
+              <div class="faq-mini-a">Both are welcome. Many of our tutors work part-time alongside their studies or other commitments. We ask for at least one consistent weekly slot so students get continuity.</div>
+            </div>
+            <div class="faq-mini-item">
+              <div class="faq-mini-q" onclick="toggleFaq(this)">
+                What is the pay?
+                <span class="icon">+</span>
+              </div>
+              <div class="faq-mini-a">Competitive hourly rates, discussed during the interview. We review pay regularly and reward tutors who deliver strong results and receive positive parent feedback.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <a class="foot-logo" href="index.html">
+    <img src="assets/tmr-mark.png" alt="That Math Room" width="30" height="21" style="display:block;object-fit:contain;filter:brightness(0) invert(1) opacity(0.5);"/>
+    <span>That Math Room</span>
+  </a>
+  <p style="font-size:13px; color:rgba(255,255,255,0.25);">Bencoolen, Singapore · Primary 1–6 Maths Tuition</p>
+  <p style="font-size:12px; color:rgba(255,255,255,0.15); margin-top:20px;">© 2026 That Math Room. All rights reserved.</p>
+</footer>
+
+<script>
+function toggleFaq(el) {
+  const isOpen = el.classList.contains('open');
+  document.querySelectorAll('.faq-mini-q').forEach(q => {
+    q.classList.remove('open');
+    q.nextElementSibling.classList.remove('open');
+  });
+  if (!isOpen) {
+    el.classList.add('open');
+    el.nextElementSibling.classList.add('open');
+  }
+}
+</script>
+
+<template id="__bundler_thumbnail" data-bg-color="#2a2318">
+  <svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
+    <rect width="200" height="140" fill="#2a2318"/>
+    <path d="M60 100 C75 70 90 50 100 30 C110 50 125 70 140 100Z" fill="none" stroke="#7a7a4a" stroke-width="2.5"/>
+    <text x="100" y="122" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.4)" font-family="serif" letter-spacing="3">JOIN OUR TEAM</text>
+  </svg>
+</template>
+
+</body>
+</html>
